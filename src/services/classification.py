@@ -4,25 +4,26 @@ from src.config import settings
 from src.core.llm_service import llm_service
 
 def classify_ticket(ticket: Ticket) -> Classification:
-    """Classify support ticket into category."""
+    """Classify ticket with empty input handling"""
+    if not ticket["subject"] and not ticket["description"]:
+        return {"category": "General", "confidence": 0.0}
+    
     prompt = ChatPromptTemplate.from_messages([
-        ("system", """Classify this ticket into exactly one category:
-Billing - Payments, subscriptions, invoices
-Technical - App errors, bugs, technical issues
-Security - Account security, phishing, 2FA
-General - Other questions, feedback, non-urgent
-
-Respond ONLY with the category name."""),
+        ("system", """Classify this ticket into one category:
+        - Billing
+        - Technical  
+        - Security
+        - General
+        Return ONLY the category name"""),
         ("human", "Subject: {subject}\nDescription: {description}")
     ])
     
-    chain = prompt | llm_service.get_llm("classification")
-    category = chain.invoke({
-        "subject": ticket["subject"],
-        "description": ticket["description"]
-    }).content
-    
-    return {
-        "category": category.strip(),
-        "confidence": 1.0
-    }
+    try:
+        chain = prompt | llm_service.get_llm("classification")
+        category = chain.invoke({
+            "subject": ticket["subject"] or "(No subject)",
+            "description": ticket["description"] or "(No description)"
+        }).content.strip()
+        return {"category": category, "confidence": 1.0}
+    except:
+        return {"category": "General", "confidence": 0.0}

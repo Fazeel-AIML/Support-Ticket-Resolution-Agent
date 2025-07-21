@@ -23,8 +23,8 @@ An AI-powered support ticket resolution system built with LangGraph that automat
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/support-ticket-agent.git
-cd support-ticket-agent
+git clone https://github.com/Fazeel-AIML/Support-Ticket-Resolution-Agent
+cd support-ticket-resolution-agent
 ```
 
 ### 2. Set up virtual environment

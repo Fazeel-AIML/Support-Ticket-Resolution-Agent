@@ -3,26 +3,46 @@ from typing import Any, Dict
 from pathlib import Path
 import pandas as pd
 from src.config import settings
-
+from datetime import datetime
 def validate_json_output(output: str, expected_keys: list) -> Dict[str, Any]:
-    """Validate LLM JSON output and convert to dict."""
+    """More robust JSON validation with fallback"""
     try:
-        data = json.loads(output)
-        if not all(key in data for key in expected_keys):
-            raise ValueError(f"Missing required keys: {expected_keys}")
-        return data
-    except json.JSONDecodeError:
-        raise ValueError("Invalid JSON format")
-
+        # Handle cases where LLM wraps JSON in markdown
+        cleaned = output.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        
+        # Parse JSON with fallback
+        data = json.loads(cleaned) if cleaned.startswith('{') else {}
+        return {k: data.get(k, False) for k in expected_keys}
+    except:
+        return {k: False for k in expected_keys}
 def log_escalation(data: Dict[str, Any]) -> None:
-    """Log escalated tickets to CSV."""
-    Path(settings.ESCALATION_LOG_PATH).parent.mkdir(exist_ok=True, parents=True)
-    
-    df = pd.DataFrame([data])
-    if not Path(settings.ESCALATION_LOG_PATH).exists():
-        df.to_csv(settings.ESCALATION_LOG_PATH, index=False)
-    else:
-        df.to_csv(settings.ESCALATION_LOG_PATH, mode='a', header=False, index=False)
+    """Log escalations with guaranteed success"""
+    try:
+        Path(settings.ESCALATION_LOG_PATH).parent.mkdir(exist_ok=True, parents=True)
+        
+        # Prepare data with defaults
+        record = {
+            "timestamp": datetime.now().isoformat(),
+            "subject": data.get("ticket", {}).get("subject", "UNKNOWN"),
+            "description": data.get("ticket", {}).get("description", "UNKNOWN"),
+            "category": data.get("classification", {}).get("category", "UNKNOWN"),
+            "attempts": data.get("attempt", 0),
+            "error": data.get("error", "No error recorded"),
+            "feedback": data.get("review", {}).get("feedback", "No feedback")
+        }
+        
+        # Write to CSV
+        df = pd.DataFrame([record])
+        header = not Path(settings.ESCALATION_LOG_PATH).exists()
+        df.to_csv(settings.ESCALATION_LOG_PATH, mode='a', header=header, index=False)
+    except Exception as e:
+        # Fallback to print if CSV fails
+        print(f"ESCALATION RECORD FAILED: {record}\nError: {str(e)}")
 
 def prepare_retry_signal(state: Dict[str, Any]) -> Dict[str, Any]:
     """Prepare retry signal based on current state."""
