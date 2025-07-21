@@ -9,6 +9,7 @@ from src.services import (
 from src.core.utils import prepare_retry_signal, log_escalation
 from typing import Optional
 import logging
+from src.config.settings import Settings
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -89,7 +90,7 @@ class SupportAgent:
         }
         
         # Auto-escalate for certain violations
-        if any(v in POLICY_ESCALATION_TRIGGERS for v in review_result.get("violations", [])):
+        if any(v in Settings.POLICY_ESCALATION_TRIGGERS for v in review_result.get("violations", [])):
             state["escalated"] = True
             
         state["attempt"] = state.get("attempt", 0) + 1
