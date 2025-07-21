@@ -23,18 +23,15 @@ def validate_json_output(output: str, expected_keys: list) -> Dict[str, Any]:
 def log_escalation(data: Dict[str, Any]) -> None:
     """Log escalations with guaranteed success"""
     try:
-        Path(settings.ESCALATION_LOG_PATH).parent.mkdir(exist_ok=True, parents=True)
         
-        # Prepare data with defaults
-        record = {
-            "timestamp": datetime.now().isoformat(),
-            "subject": data.get("ticket", {}).get("subject", "UNKNOWN"),
-            "description": data.get("ticket", {}).get("description", "UNKNOWN"),
-            "category": data.get("classification", {}).get("category", "UNKNOWN"),
-            "attempts": data.get("attempt", 0),
-            "error": data.get("error", "No error recorded"),
-            "feedback": data.get("review", {}).get("feedback", "No feedback")
-        }
+        if data.get("error") or data.get("attempt", 0) >= 1:  # Only log real issues
+            record = {
+                "timestamp": datetime.now().isoformat(),
+                "subject": data["ticket"]["subject"],
+                "description": data["ticket"]["description"],
+                "category": data.get("classification", {}).get("category", "UNKNOWN"),
+                "reason": data.get("error") or data.get("review", {}).get("feedback", "Policy violation")
+            }
         
         # Write to CSV
         df = pd.DataFrame([record])

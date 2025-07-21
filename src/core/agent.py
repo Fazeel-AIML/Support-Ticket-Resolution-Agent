@@ -79,18 +79,19 @@ class SupportAgent:
         return state
 
     def _review(self, state: AgentState) -> AgentState:
-        try:
-            review_result = review_draft(state["ticket"], state["draft"])
-            state["review"] = {
-                "approved": review_result.get("approved", False),
-                "feedback": review_result.get("feedback", "Automatic rejection due to system error")
-            }
-        except Exception as e:
-            logger.error(f"Review failed: {str(e)}")
-            state["review"] = {
-                "approved": False,
-                "feedback": "System could not complete review"
-            }
+        """Enhanced review with policy enforcement"""
+        review_result = review_draft(state["ticket"], state["draft"])
+        
+        state["review"] = {
+            "approved": review_result["approved"],
+            "feedback": review_result["feedback"],
+            "violations": review_result.get("violations", [])
+        }
+        
+        # Auto-escalate for certain violations
+        if any(v in POLICY_ESCALATION_TRIGGERS for v in review_result.get("violations", [])):
+            state["escalated"] = True
+            
         state["attempt"] = state.get("attempt", 0) + 1
         return state
 
@@ -110,17 +111,19 @@ class SupportAgent:
         return state
 
     def _should_retry(self, state: AgentState) -> str:
-        try:
-            if not state.get("review"):
-                return "escalate"
-                
-            if state["review"].get("approved", False):
-                return "approve"
-                
-            return "retry" if state.get("attempt", 0) < 2 else "escalate"
-        except Exception as e:
-            logger.error(f"Retry decision failed: {str(e)}")
+        """Strict retry logic"""
+        if state.get("escalated", False):
             return "escalate"
+            
+        if not state.get("review"):
+            return "escalate"
+            
+        if state["review"].get("approved", False):
+            return "approve"
+            
+        return "retry" if state.get("attempt", 0) < 2 else "escalate"
+            
+        return "retry" if state.get("attempt", 0) < 1 else "escalate"  # Only 1 retry
     def process_ticket(self, ticket: dict) -> dict:
         """Process tickets with empty input handling"""
         # Validate input

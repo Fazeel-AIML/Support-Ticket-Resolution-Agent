@@ -5,7 +5,14 @@ from typing import Literal
 load_dotenv()
 
 class Settings:
-    
+        # Add to existing settings
+    POLICY_ESCALATION_TRIGGERS = [
+        "Do not promise refunds",
+        "Escalate account breaches",
+        "Escalate legal inquiries",
+        "System failure"
+        "Empty Input"
+]
     LLM_PROVIDER: Literal["groq", "openai"] = "groq"  # Updated to prioritize Groq
     GROQ_MODEL: str = "llama3-8b-8192"  # Default Groq model
     OPENAI_MODEL: str = "gpt-4"  # Fallback option
